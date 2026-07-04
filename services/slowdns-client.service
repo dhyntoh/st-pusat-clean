@@ -1,0 +1,16 @@
+[Unit]
+Description=SlowDNS Client
+After=network.target
+
+[Service]
+Type=simple
+User=root
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/dnstt-client -udp 127.0.0.1:53 --pubkey-file /etc/slowdns/server.pub __DOMAIN__ 127.0.0.1:88
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

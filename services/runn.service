@@ -1,0 +1,12 @@
+[Unit]
+Description=Run directory setup for Xray
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/bin/mkdir -p /var/run/xray
+ExecStart=/usr/bin/chown www-data:www-data /var/run/xray
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=BadVPN UDPGW %i
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/badvpn-udpgw --listen-addr 127.0.0.1:%i --max-clients 500
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

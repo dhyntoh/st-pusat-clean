@@ -1,0 +1,124 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "error": "/var/log/xray/error.log",
+    "access": "/var/log/xray/access.log"
+  },
+  "api": {
+    "services": ["HandlerService","LoggerService","StatsService"],
+    "tag": "api"
+  },
+  "stats": {},
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 2,
+        "connIdle": 128,
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 10000,
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1" },
+      "tag": "api"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10001,
+      "protocol": "vless",
+      "settings": { "decryption": "none", "clients": [] },
+      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/vless" } },
+      "sniffing": { "enabled": true, "destOverride": ["http","tls"] },
+      "tag": "vless-ws"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10002,
+      "protocol": "vmess",
+      "settings": { "clients": [] },
+      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/vmess" } },
+      "sniffing": { "enabled": true, "destOverride": ["http","tls"] },
+      "tag": "vmess-ws"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10003,
+      "protocol": "trojan",
+      "settings": { "clients": [], "udp": true },
+      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/trojan-ws" } },
+      "sniffing": { "enabled": true, "destOverride": ["http","tls"] },
+      "tag": "trojan-ws"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10004,
+      "protocol": "shadowsocks",
+      "settings": { "clients": [], "network": "tcp,udp" },
+      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/ss-ws" } },
+      "tag": "ss-ws"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10005,
+      "protocol": "vless",
+      "settings": { "decryption": "none", "clients": [] },
+      "streamSettings": { "network": "grpc", "security": "none", "grpcSettings": { "serviceName": "vless-grpc" } },
+      "tag": "vless-grpc"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10006,
+      "protocol": "vmess",
+      "settings": { "clients": [] },
+      "streamSettings": { "network": "grpc", "security": "none", "grpcSettings": { "serviceName": "vmess-grpc" } },
+      "tag": "vmess-grpc"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10007,
+      "protocol": "trojan",
+      "settings": { "clients": [], "udp": true },
+      "streamSettings": { "network": "grpc", "security": "none", "grpcSettings": { "serviceName": "trojan-grpc" } },
+      "tag": "trojan-grpc"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10008,
+      "protocol": "shadowsocks",
+      "settings": { "clients": [], "network": "tcp,udp" },
+      "streamSettings": { "network": "grpc", "security": "none", "grpcSettings": { "serviceName": "ss-grpc" } },
+      "tag": "ss-grpc"
+    }
+  ],
+  "outbounds": [
+    { "protocol": "freedom", "settings": {} },
+    { "protocol": "blackhole", "settings": {}, "tag": "blocked" }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      { "inboundTag": ["api"], "outboundTag": "api", "type": "field" },
+      { "type": "field", "outboundTag": "blocked", "protocol": ["bittorrent"] },
+      { "type": "field", "outboundTag": "blocked", "ip": ["0.0.0.0/8","10.0.0.0/8","100.64.0.0/10","169.254.0.0/16","172.16.0.0/12","192.0.0.0/24","192.0.2.0/24","192.168.0.0/16","198.18.0.0/15","198.51.100.0/24","203.0.113.0/24","::1/128","fc00::/7","fe80::/10"] },
+      { "type": "field", "outboundTag": "blocked", "domain": ["geosite:category-ads-all"] }
+    ]
+  },
+  "dns": {
+    "servers": [
+      { "address": "https://1.1.1.1/dns-query", "domains": ["geosite:geolocation-!cn"] },
+      "8.8.8.8",
+      { "address": "localhost", "skipFallback": true }
+    ]
+  }
+}
