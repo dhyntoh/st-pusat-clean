@@ -19,10 +19,10 @@ setup_domain() {
 
 setup_ssl() {
     section "SSL CERTIFICATE"
-    local domain=$(cat /etc/xray/domain)
+    local domain=$(cat /etc/xray/domain 2>/dev/null || echo "")
 
-    # If domain is IP, use self-signed
-    if [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # If empty or IP, use self-signed
+    if [[ -z "$domain" || $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         warn "Using IP address, SSL will use self-signed"
         mkdir -p /etc/xray
         openssl req -x509 -nodes -days 365 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \

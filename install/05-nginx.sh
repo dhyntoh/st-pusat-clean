@@ -22,8 +22,9 @@ setup_nginx() {
         sed -i '/include \/etc\/nginx\/conf.d\/\*\.conf;/a\    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
     fi
 
-    # Test nginx config
-    if nginx -t 2>&1 | grep -q "syntax is ok"; then
+    # Test nginx config (check exit code, not grep output)
+    nginx -t 2>/dev/null
+    if [[ $? -eq 0 ]]; then
         systemctl enable nginx 2>/dev/null
         systemctl restart nginx
         ok "Nginx configured with SSL for $domain"
