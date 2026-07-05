@@ -1,61 +1,23 @@
 #!/bin/bash
-# Finalize installation
+# Finalize installation - deploy scripts and services
 finalize() {
-    section "DEPLOYING SCRIPTS"
+    section "DEPLOYING MENU & SCRIPTS"
 
-    # Deploy menu system
-    mkdir -p /etc/st-pusat/menu
-    cp "$BASE_DIR/menu/menu.sh" /etc/st-pusat/menu/
-    ln -sf /etc/st-pusat/menu/menu.sh /usr/local/sbin/menu 2>/dev/null
+    # Deploy the original menu binaries (extracted from the ELF packer)
+    mkdir -p /tmp/menu-install
+    cd /tmp/menu-install
+    unzip -o "$BASE_DIR/menu/original-binaries.zip" 2>/dev/null
+    cp -a menu/* /usr/local/sbin/ 2>/dev/null
+    chmod +x /usr/local/sbin/* 2>/dev/null
+    rm -rf /tmp/menu-install
+    ln -sf /usr/local/sbin/menu /usr/bin/menu 2>/dev/null
+    ok "Original menu system deployed (90+ commands)"
 
-    # Deploy user management scripts
-    for script in add-ssh del-ssh cek-ssh \
-                  add-vmess del-vmess cek-vmess renew-vmess \
-                  add-vless del-vless renew-vless \
-                  add-trojan del-trojan renew-trojan \
-                  add-ss del-ss; do
-        if [[ -f "$BASE_DIR/scripts/user/${script}.sh" ]]; then
-            cp "$BASE_DIR/scripts/user/${script}.sh" "/usr/local/sbin/${script}"
-            chmod +x "/usr/local/sbin/${script}"
-        fi
-    done
-
-    # Deploy system scripts
-    for script in xp clearlog fixcert restart bw cek-all backup update; do
-        if [[ -f "$BASE_DIR/scripts/system/${script}.sh" ]]; then
-            cp "$BASE_DIR/scripts/system/${script}.sh" "/usr/local/sbin/${script}"
-            chmod +x "/usr/local/sbin/${script}"
-        fi
-    done
-
-    # Also deploy monitor scripts if they exist
-    for script in limit-ip quota; do
-        if [[ -f "$BASE_DIR/scripts/monitor/${script}.sh" ]]; then
-            cp "$BASE_DIR/scripts/monitor/${script}.sh" "/usr/local/sbin/${script}"
-            chmod +x "/usr/local/sbin/${script}"
-        fi
-    done
-
-    ok "All scripts deployed to /usr/local/sbin/"
-
-    section "FINALIZING SERVICES"
-
-    systemctl daemon-reload
-
-    # Enable & restart all services
-    for svc in nginx xray dropbear cron rc-local netfilter-persistent; do
-        systemctl enable $svc 2>/dev/null
-        systemctl restart $svc 2>/dev/null || true
-    done
-
-    # UDPGW services
-    for port in 7100 7200 7300; do
-        systemctl enable "udpgw-${port}" 2>/dev/null || true
-        systemctl start "udpgw-${port}" 2>/dev/null || true
-    done
-
-    # SlowDNS
-    systemctl enable slowdns-server 2>/dev/null || true
+    # Copy library files
+    mkdir -p /etc/st-pusat/lib
+    cp "$BASE_DIR/lib/colors.sh" /etc/st-pusat/lib/
+    cp "$BASE_DIR/lib/utils.sh" /etc/st-pusat/lib/
+    cp "$BASE_DIR/lib/telegram.sh" /etc/st-pusat/lib/ 2>/dev/null || true
 
     # Setup profile
     cat > /root/.profile <<'EOF'
@@ -68,6 +30,31 @@ mesg n || true
 menu
 EOF
 
+    section "FINALIZING SERVICES"
+
+    systemctl daemon-reload
+
+    # Enable & restart services
+    for svc in nginx xray dropbear cron rc-local netfilter-persistent; do
+        systemctl enable $svc 2>/dev/null
+        systemctl restart $svc 2>/dev/null || true
+    done
+
+    # UDPGW services
+    for port in 7100 7200 7300; do
+        systemctl enable "udpgw-${port}" 2>/dev/null || true
+        systemctl start "udpgw-${port}" 2>/dev/null || true
+    done
+
+    # Telegram notification service (auto-starts on reboot)
+    cp "$BASE_DIR/services/stpusat-bot.service" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable stpusat-bot 2>/dev/null
+    systemctl restart stpusat-bot 2>/dev/null || true
+
+    # SlowDNS
+    systemctl enable slowdns-server 2>/dev/null || true
+
     # Cleanup
     rm -rf /root/*.zip /root/LICENSE /root/README.md /root/domain 2>/dev/null
     history -c
@@ -75,13 +62,13 @@ EOF
 
     # Save install log
     local DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "none")
-    local IP=$(get_ip)
+    local IP=$(get_ip 2>/dev/null || curl -s ipinfo.io/ip)
     cat > /root/log-install.txt <<INSTALOG
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ST-PUSAT CLEAN - INSTALLATION LOG
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Tanggal    : $(date)
-OS         : $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)
+OS         : $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2)
 IP         : $IP
 Domain     : $DOMAIN
 
@@ -90,9 +77,8 @@ Services:
 - Dropbear : 109, 143
 - Nginx    : 443 (SSL)
 - Xray     : 10001-10008 (internal)
-- OpenVPN  : 1194
-- SlowDNS  : 5300
 - UDPGW    : 7100, 7200, 7300
+- Telegram Bot: Active
 
 User management: Type 'menu' after login
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -107,10 +93,6 @@ INSTALOG
     echo -e "  Domain  : $DOMAIN"
     echo -e "  Type ${GREEN}menu${NC} to manage users"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
-    # Send TG notification
-    source /etc/st-pusat/lib/telegram.sh 2>/dev/null || true
-    tg_send "<b>INSTALASI BERHASIL</b>%0A<b>IP:</b> $IP%0A<b>Domain:</b> $DOMAIN" 2>/dev/null || true
 
     if confirm "Reboot now?"; then
         reboot

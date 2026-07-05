@@ -1,0 +1,14 @@
+[Unit]
+Description=ST-PUSAT Telegram Notification Service
+After=network.target xray.service
+Wants=xray.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/sbin/bot-notify
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

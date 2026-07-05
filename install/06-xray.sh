@@ -3,8 +3,13 @@
 setup_xray() {
     section "XRAY CORE"
 
-    # Copy config
+    # Copy config to Xray's actual config path
+    mkdir -p /usr/local/etc/xray
+    cp "$BASE_DIR/config/xray/config.json" /usr/local/etc/xray/config.json
     cp "$BASE_DIR/config/xray/config.json" /etc/xray/config.json
+
+    # Create symlink so both paths stay in sync
+    ln -sf /usr/local/etc/xray/config.json /etc/xray/config.json 2>/dev/null || true
 
     # Create xray service if not exists
     if [[ ! -f /etc/systemd/system/xray.service ]]; then
