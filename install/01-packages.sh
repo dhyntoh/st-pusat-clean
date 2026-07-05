@@ -14,43 +14,45 @@ install_packages() {
     apt upgrade -y
 
     info "Installing base packages..."
-    apt install -y \
-        nginx \
-        dropbear \
-        stunnel4 \
-        openssl \
-        cron \
-        socat \
-        netcat-openbsd \
-        zip unzip \
-        wget curl \
-        jq \
-        vnstat \
-        fail2ban \
-        rclone \
-        ruby \
-        lolcat \
-        python3 python3-pip \
-        iptables iptables-persistent netfilter-persistent \
-        net-tools \
-        ca-certificates \
-        gnupg \
-        lsb-release \
-        dnsutils \
-        bc \
-        screen \
-        git \
-        build-essential \
-        cmake \
-        uuid-runtime \
-        wondershaper \
-        whois \
-        2>&1 | tail -2
 
-    if [[ $? -eq 0 ]]; then
-        ok "Base packages installed"
-    else
-        warn "Some packages may have failed (non-critical)"
+    # Essential packages - these must install
+    PKGS_CORE="nginx dropbear openssl cron socat zip unzip wget curl jq vnstat"
+    apt install -y $PKGS_CORE 2>&1 | tail -1
+    ok "Core packages installed"
+
+    # SSL & tools
+    PKGS_TOOLS="stunnel4 ca-certificates gnupg lsb-release dnsutils bc screen git"
+    apt install -y $PKGS_TOOLS 2>&1 | tail -1 || true
+    ok "Tools installed"
+
+    # Network & security
+    PKGS_NET="iptables iptables-persistent netfilter-persistent net-tools fail2ban"
+    apt install -y $PKGS_NET 2>&1 | tail -1 || true
+    ok "Network/security packages installed"
+
+    # Development
+    PKGS_DEV="build-essential cmake uuid-runtime"
+    apt install -y $PKGS_DEV 2>&1 | tail -1 || true
+    ok "Dev packages installed"
+
+    # Python
+    PKGS_PY="python3 python3-pip"
+    apt install -y $PKGS_PY 2>&1 | tail -1 || true
+
+    # Optional - might not exist in all distros
+    PKGS_OPT="ruby whois rclone netcat-traditional"
+    for pkg in $PKGS_OPT; do
+        apt install -y "$pkg" 2>/dev/null && echo "  $pkg installed" || true
+    done
+
+    # lolcat via gem if ruby available
+    if command -v gem &>/dev/null && ! command -v lolcat &>/dev/null; then
+        gem install lolcat 2>/dev/null && ok "lolcat installed" || true
+    fi
+
+    # wondershaper - may not be in repos, try pip or apt
+    if ! apt install -y wondershaper 2>/dev/null; then
+        pip3 install wondershaper 2>/dev/null || true
     fi
 
     # Install badvpn for UDP
